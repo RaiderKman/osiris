@@ -1,5 +1,6 @@
 import { trending } from '@/lib/oi/markets';
 import { disabled, disabledResponse, fail, json, limited } from '@/lib/oi/service';
+import { denyLocalCapability } from '@/lib/local-policy';
 
 /**
  * OSIRIS OI — what the world is betting on: the busiest questions on
@@ -13,6 +14,8 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 15;
 
 export async function GET(req: Request) {
+  const denied = denyLocalCapability();
+  if (denied) return denied;
   if (disabled()) return disabledResponse();
   if (limited(req, 'trending', 30)) return fail(429, 'Too many requests. Wait a minute.');
   const items = await trending((url, init) => fetch(url, init), req.signal);

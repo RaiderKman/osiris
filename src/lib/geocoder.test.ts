@@ -19,10 +19,10 @@ beforeEach(() => {
 });
 
 describe('sharedSearch', () => {
-  it('asks osirisai.live by default, so a copy needs nothing set up', async () => {
-    httpJson.mockResolvedValue({ results: [] });
-    await sharedSearch({ q: 'Lviv', lat: '49.8', lng: '24' });
-    expect(httpJson.mock.calls[0][0]).toBe('https://osirisai.live/api/geosearch/shared?q=Lviv&lat=49.8&lng=24');
+  it('does not call the public deployment unless a URL is set', async () => {
+    expect(sharedSearchConfigured()).toBe(false);
+    expect(await sharedSearch({ q: 'Lviv', lat: '49.8', lng: '24' })).toBeNull();
+    expect(httpJson).not.toHaveBeenCalled();
   });
 
   it('asks another deployment when told to, and nothing when it is off', async () => {
@@ -38,6 +38,7 @@ describe('sharedSearch', () => {
   });
 
   it('remembers answers and rests after a failure, like the geocoder', async () => {
+    process.env.SHARED_SEARCH_URL = 'https://osiris.example/api/geosearch/shared';
     httpJson.mockRejectedValueOnce(new Error('HTTP 404')).mockResolvedValue({ results: [] });
     expect(await sharedSearch({ q: 'Kyiv' })).toBeNull();
     expect(await sharedSearch({ q: 'Lviv' })).toBeNull();

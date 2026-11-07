@@ -11,9 +11,10 @@ describe('progressive camera catalogue', () => {
       .mockResolvedValueOnce(json([{ id: 'ottawa' }]));
     vi.stubGlobal('fetch', fetcher);
     let cameras: { id: string | number }[] = [];
-    const stop = loadCameraCatalog(batch => { cameras = mergeCameraCatalog(cameras, batch); }, vi.fn());
+    const stop = loadCameraCatalog('canada', batch => { cameras = mergeCameraCatalog(cameras, batch); }, vi.fn());
     await vi.advanceTimersByTimeAsync(0);
     expect(cameras).toEqual([{ id: 'london' }]);
+    expect(fetcher.mock.calls[0][0]).toBe('/api/cctv?region=canada');
     await vi.advanceTimersByTimeAsync(15_000);
     expect(fetcher.mock.calls[1][0]).toBe('/api/cctv?region=canada');
     expect(cameras).toEqual([{ id: 'london' }, { id: 'ottawa' }]);
@@ -27,7 +28,7 @@ describe('progressive camera catalogue', () => {
       .mockImplementation(async () => json([], ['canada']));
     vi.stubGlobal('fetch', fetcher);
     const onError = vi.fn();
-    const stop = loadCameraCatalog(vi.fn(), onError);
+    const stop = loadCameraCatalog('canada', vi.fn(), onError);
     await vi.advanceTimersByTimeAsync(120_000);
     expect(fetcher).toHaveBeenCalledTimes(3);
     expect(onError).toHaveBeenCalledTimes(1);
@@ -37,7 +38,7 @@ describe('progressive camera catalogue', () => {
   it('cancels queued retries when cameras are switched off', async () => {
     const fetcher = vi.fn(async () => json([], ['canada']));
     vi.stubGlobal('fetch', fetcher);
-    const stop = loadCameraCatalog(vi.fn(), vi.fn());
+    const stop = loadCameraCatalog('canada', vi.fn(), vi.fn());
     await vi.advanceTimersByTimeAsync(0);
     stop();
     await vi.advanceTimersByTimeAsync(120_000);

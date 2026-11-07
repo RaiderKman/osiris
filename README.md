@@ -166,23 +166,22 @@ Run `npm test` for offline checks or `RUN_LIVE_TESTS=1 npx vitest run src/app/ap
 
 ## Quick Start
 
+This fork is a local loopback build. Recon, wallet tools, World Remote, and telemetry are disabled. Create a credential file, install dependencies without lifecycle scripts, then start the guarded server. Do not run `deploy.sh`.
+
 ```bash
-git clone https://github.com/simplifaisoul/osiris.git
+git clone https://github.com/RaiderKman/osiris.git
 cd osiris
-npm install
-npm run dev
+node tools/bootstrap-local-auth.mjs
+npm ci --ignore-scripts
+npm run build
+npm start
 ```
 
-Open [http://localhost:3000](http://localhost:3000)
+Open [http://127.0.0.1:3000](http://127.0.0.1:3000) and paste the credential from `~/.config/osiris/local-token`. The bootstrap command does not print it.
 
 ### Docker / Self-Hosting
 
-```bash
-git clone https://github.com/simplifaisoul/osiris.git
-cd osiris
-cp .env.template .env     # optional — configure keys / port
-docker compose up -d
-```
+`docker compose up` starts nothing. The image entrypoint refuses to boot a public server. Use the commands above.
 
 Open [http://localhost:3000](http://localhost:3000). The image is a multi-stage
 `node:22-alpine` standalone build (~220 MB, non-root). The compose file also

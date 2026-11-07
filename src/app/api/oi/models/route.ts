@@ -1,5 +1,6 @@
 import { ProviderError, listModels, pickModel, providerInfo } from '@/lib/oi/providers';
 import { credentials, disabled, disabledResponse, fail, json, limited, readBody } from '@/lib/oi/service';
+import { denyLocalCapability } from '@/lib/local-policy';
 
 /**
  * OSIRIS OI — the models a key can use. Doubles as the key check: a key
@@ -11,6 +12,8 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
 
 export async function POST(req: Request) {
+  const denied = denyLocalCapability();
+  if (denied) return denied;
   if (disabled()) return disabledResponse();
   if (limited(req, 'models', 20)) return fail(429, 'Too many key checks. Wait a minute.');
   const body = await readBody(req, 4_000);

@@ -1,5 +1,6 @@
 import { getRun, injectEvent, ownsRun } from '@/lib/oi/runs';
 import { disabled, disabledResponse, fail, json, readBody } from '@/lib/oi/service';
+import { denyLocalCapability } from '@/lib/local-policy';
 
 /**
  * OSIRIS OI — the god's-eye view: drop an event into a running simulation.
@@ -12,6 +13,8 @@ import { disabled, disabledResponse, fail, json, readBody } from '@/lib/oi/servi
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const denied = denyLocalCapability();
+  if (denied) return denied;
   if (disabled()) return disabledResponse();
   const run = getRun((await params).id);
   if (!run) return fail(404, 'No such run.');

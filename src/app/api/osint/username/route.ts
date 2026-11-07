@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { isRateLimited, getClientIp } from '@/lib/ssrf-guard';
 import { scanUsername, isValidUsername } from '@/lib/sherlock';
+import { denyLocalCapability } from '@/lib/local-policy';
 
 /**
  * OSIRIS — Username enumeration across social platforms.
@@ -17,6 +18,8 @@ import { scanUsername, isValidUsername } from '@/lib/sherlock';
 export const maxDuration = 60;
 
 export async function GET(req: Request) {
+  const denied = denyLocalCapability();
+  if (denied) return denied;
   const { searchParams } = new URL(req.url);
   const username = (searchParams.get('username') || '').trim();
 

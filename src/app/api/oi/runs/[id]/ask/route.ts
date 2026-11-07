@@ -1,5 +1,6 @@
 import { getRun } from '@/lib/oi/runs';
 import { askPrediction, credentials, disabled, disabledResponse, fail, json, limited, readBody } from '@/lib/oi/service';
+import { denyLocalCapability } from '@/lib/local-policy';
 
 /**
  * OSIRIS OI — talk to the simulation after (or during) a run.
@@ -12,6 +13,8 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 75;
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const denied = denyLocalCapability();
+  if (denied) return denied;
   if (disabled()) return disabledResponse();
   const run = getRun((await params).id);
   if (!run) return fail(404, 'No such run.');

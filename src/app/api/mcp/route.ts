@@ -3,6 +3,7 @@ import {
   ERR, PROTOCOL_VERSIONS, expectsNoReply, handleMessage, isLongCall, progressToken, type JsonRpcResponse, type McpContext,
 } from '@/lib/oi/mcp';
 import { credentials, disabled, limited, siteOrigin } from '@/lib/oi/service';
+import { denyLocalCapability } from '@/lib/local-policy';
 
 /**
  * OSIRIS MCP server — Streamable HTTP, stateless.
@@ -54,6 +55,8 @@ function originAllowed(req: Request): boolean {
 }
 
 export async function POST(req: Request) {
+  const denied = denyLocalCapability();
+  if (denied) return denied;
   if (disabled()) return rpcResponse({ jsonrpc: '2.0', id: null, error: { code: ERR.internal, message: 'OI is switched off on this server.' } }, 503);
   if (!originAllowed(req)) return rpcResponse({ jsonrpc: '2.0', id: null, error: { code: ERR.invalidRequest, message: 'Origin not allowed.' } }, 403);
 
@@ -140,9 +143,13 @@ export async function POST(req: Request) {
 }
 
 export async function GET() {
+  const denied = denyLocalCapability();
+  if (denied) return denied;
   return new Response(null, { status: 405, headers: { Allow: 'POST' } });
 }
 
 export async function DELETE() {
+  const denied = denyLocalCapability();
+  if (denied) return denied;
   return new Response(null, { status: 405, headers: { Allow: 'POST' } });
 }

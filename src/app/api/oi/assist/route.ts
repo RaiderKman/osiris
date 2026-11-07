@@ -1,5 +1,6 @@
 import { assistStep } from '@/lib/oi/assist/server';
 import { credentials, disabled, disabledResponse, fail, json, limited, readBody } from '@/lib/oi/service';
+import { denyLocalCapability } from '@/lib/local-policy';
 
 /**
  * OSIRIS OI Assist — one step of the conversation.
@@ -16,6 +17,8 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 export async function POST(req: Request) {
+  const denied = denyLocalCapability();
+  if (denied) return denied;
   if (disabled()) return disabledResponse();
   if (limited(req, 'assist', 40)) return fail(429, 'Too many steps in a minute. Wait a moment.');
   const body = await readBody(req, 96_000);

@@ -7,34 +7,33 @@ export function mergeCameraCatalog<T extends { id: string | number }>(previous: 
   return [...merged.values()];
 }
 
-/** Recover slow regions without downloading the entire worldwide list again. */
-export function loadCameraCatalog(onBatch: (cameras: CatalogCamera[]) => void, onError: () => void) {
+/** Load one selected region. An empty or worldwide id does not fetch. */
+export function loadCameraCatalog(region: string, onBatch: (cameras: CatalogCamera[]) => void, onError: () => void) {
+  if (!/^[a-z0-9-]+$/.test(region)) return () => {};
   const controller = new AbortController();
   let timer: ReturnType<typeof setTimeout> | undefined;
   let attempts = 0;
-  const load = async (regions: string[]) => {
+  const load = async () => {
     attempts++;
-    let remaining = regions;
+    let again = false;
     try {
-      const query = new URLSearchParams({ region: regions.join(',') });
+      const query = new URLSearchParams({ region });
       const response = await fetch(`/api/cctv?${query}`, { signal: controller.signal, cache: 'no-store' });
       if (!response.ok) throw new Error(`Camera catalogue HTTP ${response.status}`);
       const data = await response.json();
       if (!Array.isArray(data.cameras)) throw new Error('Invalid camera catalogue');
       if (controller.signal.aborted) return;
       if (data.cameras.length) onBatch(data.cameras);
-      remaining = Array.isArray(data.pendingRegions)
-        ? data.pendingRegions.filter((region: unknown): region is string => typeof region === 'string' && /^[a-z-]+$/.test(region))
-        : data.cameras.length ? [] : regions;
+      again = Array.isArray(data.pendingRegions) && data.pendingRegions.includes(region);
     } catch {
       if (controller.signal.aborted) return;
       onError();
+      again = true;
     }
-    // Three attempts total, with backoff. No endless retries against dead feeds.
-    if (remaining.length && attempts < 3 && !controller.signal.aborted) {
-      timer = setTimeout(() => void load(remaining), attempts * 15_000);
+    if (again && attempts < 3 && !controller.signal.aborted) {
+      timer = setTimeout(() => void load(), attempts * 15_000);
     }
   };
-  void load(['all']);
+  void load();
   return () => { controller.abort(); clearTimeout(timer); };
 }

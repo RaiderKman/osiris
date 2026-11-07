@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { visitorIp } from '@/lib/ssrf-guard';
+import { denyLocalCapability } from '@/lib/local-policy';
 
 /* The answer is one visitor's location. No cache, shared or otherwise, may
    hand it to the next visitor. */
@@ -8,6 +9,8 @@ const NO_STORE = { 'Cache-Control': 'private, no-store' };
 // Server-side proxy for IP geolocation — avoids mixed-content block on HTTPS pages
 // Three providers with cascading fallback for maximum reliability
 export async function GET(request: Request) {
+  const denied = denyLocalCapability();
+  if (denied) return denied;
   try {
     const ip = visitorIp(request) ?? '';
 

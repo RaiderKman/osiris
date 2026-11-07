@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { denyLocalCapability } from '@/lib/local-policy';
 
 /**
  * OSIRIS — Hudson Rock Infostealer Intelligence
@@ -44,6 +45,8 @@ export function detectAssetType(raw: string): AssetType {
 }
 
 export async function GET(req: Request) {
+  const denied = denyLocalCapability();
+  if (denied) return denied;
   const { searchParams } = new URL(req.url);
   const query = (searchParams.get('query') || '').trim();
   const forced = searchParams.get('type') as AssetType | null;

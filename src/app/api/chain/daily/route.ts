@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { isRateLimited, getClientIp } from '@/lib/ssrf-guard';
 import { buildDailyBrief } from '@/lib/chainFeeds';
+import { denyLocalCapability } from '@/lib/local-policy';
 
 /**
  * OSIRIS — Daily chain-threat brief.
@@ -13,6 +14,8 @@ import { buildDailyBrief } from '@/lib/chainFeeds';
 export const maxDuration = 60;
 
 export async function GET(req: Request) {
+  const denied = denyLocalCapability();
+  if (denied) return denied;
   const { searchParams } = new URL(req.url);
   const days = Math.min(120, Math.max(1, Number(searchParams.get('days')) || 30));
   const force = searchParams.get('refresh') === '1';

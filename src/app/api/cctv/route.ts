@@ -414,6 +414,8 @@ const RAW_REGION_FETCHERS: Record<string, RegionFetcher> = {
   'middle-east': fetchMiddleEastCameras,
   'uk': fetchTfLCameras,
   'us-west': async () => { const [w, c] = await Promise.all([fetchWSDOTCameras(), fetchCaltransCameras()]); return [...w, ...c]; },
+  // California alone, so a selected Caltrans view does not also pull Washington.
+  'caltrans': fetchCaltransCameras,
   'us-east': fetchUSEastCameras,
   'us-central': fetchUSCentralCameras,
   'canada': fetchCanadaCameras,
@@ -931,25 +933,19 @@ function servePayload(request: Request, ready: Payload) {
 
 export async function GET(request: Request) {
   try {
-    await ensureRestored();
     const { searchParams } = new URL(request.url);
     const region = searchParams.get('region');
-    const lat = parseFloat(searchParams.get('lat') || '0');
-    const lng = parseFloat(searchParams.get('lng') || '0');
-    const radius = parseFloat(searchParams.get('radius') || '10');
-
-    let regionsToFetch: string[];
-
-    if (region === 'all') {
-      regionsToFetch = Object.keys(REGION_FETCHERS);
-    } else if (region) {
-      regionsToFetch = region.split(',').filter(r => r in REGION_FETCHERS);
-    } else if (lat !== 0 || lng !== 0) {
-      regionsToFetch = getRegionsForBounds(lat, lng, radius);
-    } else {
-      // Default: load all regions for global coverage
-      regionsToFetch = Object.keys(REGION_FETCHERS);
+    // No implicit worldwide fetch. The caller names at most three regions.
+    const asked = (region || '').split(',').map(part => part.trim()).filter(Boolean);
+    const regionsToFetch = asked.filter(name => name !== 'all' && name in REGION_FETCHERS);
+    if (!region || region === 'all' || asked.length === 0 || regionsToFetch.length !== asked.length || regionsToFetch.length > 3) {
+      return NextResponse.json(
+        { cameras: [], error: 'Choose one to three camera regions. Worldwide loading is disabled.' },
+        { status: 400, headers: { 'Cache-Control': 'no-store' } },
+      );
     }
+
+    await ensureRestored();
 
     if (regionsToFetch.length === ALL_REGIONS().length) {
       const ready = getPayload();
