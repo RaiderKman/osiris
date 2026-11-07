@@ -6,6 +6,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Layers, BarChart3, Newspaper, Search, X, Globe, MapPinned, Route, Radar, Satellite, Moon, ExternalLink, AlertTriangle, Activity, Database, Wifi, Play, Network, Crosshair, Bluetooth, Pentagon, Radio , PenLine, Orbit } from 'lucide-react';
 import { type TerrainStatus } from '@/lib/map-terrain';
 import { loadCameraCatalog, mergeCameraCatalog } from '@/lib/camera-catalog';
+import { CAMERA_REGIONS } from '@/lib/camera-regions';
+import { DEFAULT_LAYERS } from '@/lib/default-layers';
+import { feedsFor } from '@/lib/feeds-for';
 import IntelFeed from '@/components/IntelFeed';
 import MarketsPanel from '@/components/MarketsPanel';
 import ScmPanel from '@/components/ScmPanel';
@@ -24,7 +27,6 @@ import ViewPresets from '@/components/ViewPresets';
 import KeyboardShortcuts from '@/components/KeyboardShortcuts';
 import GlobalStatusBar from '@/components/GlobalStatusBar';
 import LiveAlerts from '@/components/LiveAlerts';
-import WorldRemote from '@/components/WorldRemote';
 import ArcGISPanel from '@/components/ArcGISPanel';
 const OsirisMap = dynamic(() => import('@/components/OsirisMap'), { ssr: false });
 const LayerPanel = dynamic(() => import('@/components/LayerPanel'));
@@ -43,7 +45,6 @@ import { pickLandingCity } from '@/lib/landing-cities';
 import { placeAt, searchPlaces } from '@/lib/geosearch';
 import { diffSweep, appendEvents, type WatchBaseline, type WatchEvent } from '@/lib/watch';
 import { STORAGE_KEY, serializeShapes, deserializeShapes, shapesToGeoJSON, downloadFile } from '@/lib/aoi-export';
-const TokenPanel = dynamic(() => import('@/components/TokenPanel'));
 import SupportMenu from '@/components/SupportMenu';
 import { useOi } from '@/lib/oi/client';
 import { useAssist } from '@/lib/oi/assist/client';
@@ -223,7 +224,8 @@ export default function Dashboard() {
   const [showAlerts, setShowAlerts] = useState(false);
   const [showSpaceCam, setShowSpaceCam] = useState(false);
   const [showScmPanel, setShowScmPanel] = useState(true);
-  const [showIntel, setShowIntel] = useState(false);
+  const showIntel = false;
+  const setShowIntel = (_value?: boolean | ((current: boolean) => boolean)) => { void _value; };
   const [showDrawing, setShowDrawing] = useState(false);
   const [drawMode, setDrawMode] = useState<DrawMode | null>(null);
   const [drawProgress, setDrawProgress] = useState<DrawProgress | null>(null);
@@ -322,7 +324,8 @@ export default function Dashboard() {
     );
     return () => navigator.geolocation.clearWatch(id);
   }, [navSession]);
-  const [showRemote, setShowRemote] = useState(false);
+  const showRemote = false;
+  const setShowRemote = (_value?: unknown) => { void _value; };
   const [showArcGIS, setShowArcGIS] = useState(false);
   const [arcgisLayers, setArcgisLayers] = useState<Array<{ id: string; title: string; url: string; geojson: any; color: string; visible: boolean; opacity: number }>>([]);
   /* What Live Transit can see right now, for its row in the layer panel. */
@@ -336,7 +339,8 @@ export default function Dashboard() {
   // drawing it while the panel is closed. State goes to the map's OI layer
   // directly rather than through a prop, so the map does not re-render per event.
   const oi = useOi();
-  const [showOi, setShowOi] = useState(false);
+  const showOi = false;
+  const setShowOi = (_value?: unknown) => { void _value; };
   const oiAnchor = useRef<HTMLDivElement>(null);
   const [oiTop, setOiTop] = useState(0);
   useLayoutEffect(() => {
@@ -461,66 +465,9 @@ export default function Dashboard() {
   const geocodeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastGeocodedPos = useRef<{ lat: number; lng: number } | null>(null);
 
-  // ── DEFAULT: Most layers OFF — fast initial load ──
-  const [activeLayers, setActiveLayers] = useState({
-    flights: false,
-    private: false,
-    jets: false,
-    military: false,
-    maritime: true,
-    /* Buses and other transit from operators' GPS feeds — see lib/transit.
-       Off until asked for: it is city-scale, and reads feeds only for the view. */
-    transit: false,
-    // On from the start: the orbiting fleet around the globe is the first
-    // thing the splash lifts onto.
-    satellites: true,
-    sat_comms: false,
-    sat_military: false,
-    sat_navigation: false,
-    sat_earth: false,
-    sat_science: false,
-    balloons: false,
-    cctv: true,
-    /* The live preview tiles over the camera dots — see CctvPreviews. */
-    cctv_previews: true,
-    live_news: true,
-    earthquakes: true,
-    fires: false,
-    weather: false,
-    radiation: false,
-    infrastructure: false,
-    global_incidents: true,
-    /* Live Alerts reports pinned to the place they name — see alert-places.
-       Off until asked for, like the other threat layers: the map opens with
-       what a reader has chosen to see, and the feed reads the same without it. */
-    alert_pins: false,
-    war_alerts: false,
-    day_night: true,
-    cables: true,
-    sdk_sea: true,
-    sdk_air: true,
-    sdk_naval: true,
-    /* NOAA's infrared cloud mosaic — see lib/live-clouds. Off until asked for:
-       it veils everything under it. */
-    live_clouds: false,
-    /* NOAA GFS wind as moving trails, and RainViewer radar — see lib/wind-layer.
-       Off until asked for, like the clouds. */
-    wind: false,
-    rain: false,
-    /* Their time boxes at the bottom left — see WindBar and RainBar. On, so
-       turning the layer on brings its controls; off, the layer shows now. */
-    wind_controls: true,
-    rain_controls: true,
-    /* Wind as particles coloured by speed, the classic look, instead of streamlines. */
-    wind_particles: false,
-    terrain_3d: false,
-    terrain_elevation: false,
-    malware: false,
-    cyber_attacks: false,
-    gdelt_events: false,
-    cf_outages: false,
-    cf_attacks: false,
-  });
+  // Feeds stay off until a person turns a layer on or picks a camera region.
+  const [activeLayers, setActiveLayers] = useState({ ...DEFAULT_LAYERS });
+  const [cameraRegion, setCameraRegion] = useState('');
   // ── OI ASSIST ── the conversation, and the page it works: the camera, the
   // layers, the panels, the live data, and what it marks on the map. It lives
   // here, so closing the panel keeps the conversation and its marks.
@@ -686,68 +633,15 @@ export default function Dashboard() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    // Restore active layers from URL if present
-    const p = new URLSearchParams(window.location.search);
-    const layers = p.get('layers');
-    if (layers) {
-      const active = layers.split(',');
-      // The weather time boxes came after these links. A link with no
-      // *_controls at all is from before them: the boxes stay on, as by default.
-      const older = !active.some(a => a.endsWith('_controls'));
-      const boxOn = (k: string) => older && (k === 'wind_controls' || k === 'rain_controls');
-      setActiveLayers(prev => {
-        const next = { ...prev };
-        Object.keys(next).forEach(k => { (next as any)[k] = active.includes(k) || boxOn(k); });
-        return next;
-      });
-    }
+    // Shared map links no longer turn feeds on. A local view starts quiet.
+    const city = pickLandingCity();
+    setHomeLocation({ lat: city.lat, lng: city.lng });
 
-    // Probe which credential-gated feeds this deployment has configured, so the
-    // layer panel can hide toggles that could never return data.
+    // Probe stays on this server. With no token it does not call Cloudflare.
     fetch('/api/cloudflare-radar?probe=1')
       .then(r => (r.ok ? r.json() : null))
       .then(p => { if (p) setCapabilities(c => ({ ...c, cloudflare: !!p.configured })); })
       .catch(() => { /* leave the layer hidden */ });
-
-    // Once the user interacts, a late IP-location response must not steal the
-    // camera back. The request is also cancelled when this page unmounts.
-    const geoController = new AbortController();
-    const cancelAutoLocate = () => { autoLocateCancelled.current = true; };
-    window.addEventListener('pointerdown', cancelAutoLocate, { once: true });
-    window.addEventListener('keydown', cancelAutoLocate, { once: true });
-    /* Asked for at once rather than after a fixed 3 s wait, so the answer is
-       in hand when the splash lifts; the effect above does the flying. When
-       the visitor's city can't be found (no public address, every provider
-       failed, or no answer within 6 s) the fly-in still happens, to a random
-       well-covered city, rather than stopping on the globe. */
-    let located = false;
-    const landSomewhere = () => {
-      if (located || geoController.signal.aborted) return;
-      located = true;
-      const city = pickLandingCity();
-      setHomeLocation({ lat: city.lat, lng: city.lng });
-    };
-    const geoGiveUp = setTimeout(landSomewhere, 6000);
-    fetch('/api/geo', { signal: geoController.signal })
-      .then(r => r.json())
-      .then(geo => {
-        if (located || geoController.signal.aborted) return;
-        if (geo.status === 'success' &&
-            Number.isFinite(geo.lat) && Number.isFinite(geo.lon) && Math.abs(geo.lat) <= 90 && Math.abs(geo.lon) <= 180) {
-          located = true;
-          setHomeLocation({ lat: geo.lat, lng: geo.lon });
-        } else {
-          landSomewhere();
-        }
-      })
-      .catch(landSomewhere);
-
-    return () => {
-      clearTimeout(geoGiveUp);
-      geoController.abort();
-      window.removeEventListener('pointerdown', cancelAutoLocate);
-      window.removeEventListener('keydown', cancelAutoLocate);
-    };
   }, []);
 
   // URL state: persist active layers only (lat/lon comes from IP geolocation on each load)
@@ -982,60 +876,53 @@ export default function Dashboard() {
     }
   }, []);
 
-  // ── PROGRESSIVE DATA LOADING (request-optimized) ──
+  // Live feeds run only after an explicit layer, panel, or camera choice.
   useEffect(() => {
-    // Priority 1: Core feeds (always needed for panels)
+    const wanted = feedsFor({
+      layers: activeLayers,
+      alertsOpen: showAlerts,
+      marketsOpen: showMarkets,
+      cameraRegion,
+    });
     const eqUrl = 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson';
     const eqTransform = (data: any) => ({ earthquakes: (data.features || []).map((f: any) => ({ id: f.id, lat: f.geometry?.coordinates?.[1] || 0, lng: f.geometry?.coordinates?.[0] || 0, depth: f.geometry?.coordinates?.[2] || 0, magnitude: f.properties?.mag, place: f.properties?.place, time: f.properties?.time, url: f.properties?.url, tsunami: f.properties?.tsunami, type: f.properties?.type, felt: f.properties?.felt, alert: f.properties?.alert })) });
-    fetchEndpoint(eqUrl, eqTransform);
-    fetchEndpoint('/api/news', newsTransform);
-    /* Official warnings — NOAA/NWS, GDACS, NASA EONET. A core feed rather than
-       a layer fetch: Live Alerts lists them whether or not the weather layer
-       is on, and this is the one thing in the panel a reader may have to act on. */
-    fetchEndpoint('/api/weather', d => ({ weather_events: d.events }));
-    layerFetchedRef.current.add('weather');
-    /* A cold start can time out every upstream quote and return an all-empty
-       feed. Waiting a full poll interval to find out leaves the panel blank for
-       15 minutes, so retry a few times up-front until instruments actually land. */
-    const marketRetries: ReturnType<typeof setTimeout>[] = [];
-    const loadMarkets = async (attempt = 0) => {
-      await fetchEndpoint('/api/markets', d => ({ markets: d }));
-      if ((dataRef.current.markets?.count || 0) === 0 && attempt < 3) {
-        marketRetries.push(setTimeout(() => loadMarkets(attempt + 1), 15000));
-      }
-    };
-    const marketTimer = setTimeout(() => loadMarkets(), 800);
-
-    // Priority 2: Space Weather (needed for MarketsPanel)
-    const spaceTimer = setTimeout(async () => {
-      try {
-        const r = await fetch('/api/space-weather');
-        if (r.ok) setSpaceWeather(await r.json());
-      } catch (e) { console.warn('[OSIRIS] Suppressed error:', e instanceof Error ? e.message : e); }
-    }, 5000);
-
-    // Polling — OPTIMIZED intervals to minimize edge requests
-    const intervals = [
-      setInterval(() => fetchEndpoint(eqUrl, eqTransform, undefined, { skipWhenHidden: true }), 900000),  // 15 min (was 5)
-      // 5 min: the route caches each channel for 3, so Telegram sees at most one read per channel per window however many tabs poll.
-      setInterval(() => fetchEndpoint('/api/news', newsTransform, undefined, { skipWhenHidden: true }), 300000),
-      // 5 min: a warning that has just been issued is the point of the panel.
-      setInterval(() => fetchEndpoint('/api/weather', d => ({ weather_events: d.events }), undefined, { skipWhenHidden: true }), 300000),
-      setInterval(() => fetchEndpoint('/api/markets', d => ({ markets: d }), undefined, { skipWhenHidden: true }), 900000), // 15 min (was 5)
-    ];
+    const intervals: ReturnType<typeof setInterval>[] = [];
+    if (wanted.includes('earthquakes')) {
+      fetchEndpoint(eqUrl, eqTransform);
+      intervals.push(setInterval(() => fetchEndpoint(eqUrl, eqTransform, undefined, { skipWhenHidden: true }), 900000));
+    }
+    if (wanted.includes('news')) {
+      fetchEndpoint('/api/news', newsTransform);
+      intervals.push(setInterval(() => fetchEndpoint('/api/news', newsTransform, undefined, { skipWhenHidden: true }), 300000));
+    }
+    if (wanted.includes('weather')) {
+      fetchEndpoint('/api/weather', d => ({ weather_events: d.events }));
+      intervals.push(setInterval(() => fetchEndpoint('/api/weather', d => ({ weather_events: d.events }), undefined, { skipWhenHidden: true }), 300000));
+    }
+    if (wanted.includes('markets')) {
+      fetchEndpoint('/api/markets', d => ({ markets: d }));
+      intervals.push(setInterval(() => fetchEndpoint('/api/markets', d => ({ markets: d }), undefined, { skipWhenHidden: true }), 900000));
+    }
+    let spaceTimer: ReturnType<typeof setTimeout> | undefined;
+    if (wanted.includes('space-weather')) {
+      spaceTimer = setTimeout(async () => {
+        try {
+          const r = await fetch('/api/space-weather');
+          if (r.ok) setSpaceWeather(await r.json());
+        } catch (e) { console.warn('[OSIRIS] Suppressed error:', e instanceof Error ? e.message : e); }
+      }, 500);
+    }
     return () => {
-      clearTimeout(marketTimer);
-      marketRetries.forEach(clearTimeout);
-      clearTimeout(spaceTimer);
+      if (spaceTimer) clearTimeout(spaceTimer);
       intervals.forEach(clearInterval);
     };
-  }, [fetchEndpoint]);
+  }, [fetchEndpoint, activeLayers, showAlerts, showMarkets, cameraRegion]);
 
   // ── LAYER-AWARE DATA LOADING — only fetch when layer is toggled ON ──
   const layerFetchedRef = useRef<Set<string>>(new Set());
   useEffect(() => {
-    if (!activeLayers.cctv) return;
-    return loadCameraCatalog(cameras => {
+    if (!activeLayers.cctv || !cameraRegion) return;
+    return loadCameraCatalog(cameraRegion, cameras => {
       dataRef.current = {
         ...dataRef.current,
         cameras: mergeCameraCatalog(dataRef.current.cameras ?? [], cameras),
@@ -1043,7 +930,7 @@ export default function Dashboard() {
       setDataVersion(value => value + 1);
       setBackendStatus('connected');
     }, () => console.warn('[OSIRIS] Camera catalogue load failed; bounded retry scheduled'));
-  }, [activeLayers.cctv]);
+  }, [activeLayers.cctv, cameraRegion]);
 
   useEffect(() => {
 
@@ -1782,8 +1669,6 @@ export default function Dashboard() {
 
         <span className="text-[11px] font-bold tracking-[0.2em] text-[var(--text-muted)] opacity-50">{APP_VERSION}</span>
         
-        <TokenPanel />
-
         <SupportMenu />
       </motion.div>
 
@@ -1793,7 +1678,6 @@ export default function Dashboard() {
       {isMobile && !showDirections && !navSession && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: revealed ? 1 : 0 }} transition={hudIn(0.35)} className="absolute top-3 right-3 z-[200] pointer-events-auto flex flex-col items-end gap-1.5">
           <div className="flex items-center gap-2">
-            <TokenPanel />
             <SupportMenu compact />
           </div>
         </motion.div>
@@ -1802,13 +1686,31 @@ export default function Dashboard() {
 
 
       {/* ── NEW SIDEBAR (Root Level) ── */}
+      {activeLayers.cctv && (
+        <div className="absolute top-16 left-4 z-[260] pointer-events-auto">
+          <label className="glass-panel flex items-center gap-2 px-3 py-2 text-[10px] font-mono tracking-wider">
+            Camera region
+            <select
+              value={cameraRegion}
+              onChange={event => setCameraRegion(event.target.value)}
+              className="bg-black text-[var(--text-primary)] border border-white/20 rounded px-2 py-1"
+            >
+              <option value="">Select a region…</option>
+              {CAMERA_REGIONS.map(region => (
+                <option key={region.id} value={region.id}>{region.label}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+      )}
+
       {showLayers && !isMobile && <div data-hud><LayerPanel {...terrainPanelProps} revealed={revealed} data={data} activeLayers={activeLayers} setActiveLayers={setActiveLayers} theme={osirisTheme} setTheme={setOsirisTheme} capabilities={capabilities} liveStatus={layerLiveStatus} /></div>}
 
 
 
       {/* ── RIGHT TOOL STRIP (desktop only — mobile uses bottom nav) ── */}
       {!isMobile && <motion.div data-hud initial={{ opacity: 0, x: 12 }} animate={revealed ? { opacity: 1, x: 0 } : { opacity: 0, x: 12 }} transition={hudIn(0.3)} className="absolute right-2 top-1/2 -translate-y-1/2 flex flex-col items-center gap-2 z-[250] pointer-events-auto bg-black/40 backdrop-blur-sm p-1 rounded-full border border-white/5">
-        <div className="relative group">
+        <div className="relative group" hidden>
           <button onClick={() => { setShowIntel(!showIntel); setShowOi(false); setShowMarkets(false); setShowAlerts(false); }} className={`relative w-8 h-8 rounded-full flex items-center justify-center transition-all focus:outline-none focus-visible:ring-1 focus-visible:ring-white/50 border duration-200 ${showIntel ? 'bg-[var(--gold-primary)]/20 border-[var(--gold-primary)]/70 shadow-[0_0_18px_rgba(var(--gold-rgb),0.35)]' : 'bg-[var(--gold-primary)]/[0.07] border-[var(--gold-primary)]/35 hover:bg-[var(--gold-primary)]/15 hover:border-[var(--gold-primary)]/60 hover:shadow-[0_0_14px_rgba(var(--gold-rgb),0.25)]'}`} title="OSINT Recon — IP lookup, network sweep, geolocation" aria-label="OSINT Recon" aria-expanded={showIntel}>
             <Radar className={`w-4 h-4 ${showIntel ? 'text-[var(--gold-light)]' : 'text-[var(--gold-primary)]'}`} />
             {showIntel && (
@@ -1908,7 +1810,7 @@ export default function Dashboard() {
         </div>
 
         {/* A named group: the OI panel opens inside this wrapper, and an unnamed group would light every hover style in the panel at once. */}
-        <div ref={oiAnchor} className="relative group/oi">
+        <div ref={oiAnchor} className="relative group/oi" hidden>
           {/* OI, the strip's main tool: bigger than the rest, in the middle of it, in its own colours. */}
           <button onClick={() => { setShowOi(!showOi); setShowIntel(false); setShowMarkets(false); setShowAlerts(false); setShowSpaceCam(false); }}
             className={`relative w-11 h-11 rounded-full flex flex-col items-center justify-center gap-[3px] border transition-all duration-200 focus:outline-none focus-visible:ring-1 focus-visible:ring-white/50 ${showOi ? 'bg-[var(--gold-primary)]/20 border-[var(--gold-primary)]/70 shadow-[0_0_18px_rgba(var(--gold-rgb),0.35)]' : 'bg-[var(--gold-primary)]/[0.07] border-[var(--gold-primary)]/35 hover:bg-[var(--gold-primary)]/15 hover:border-[var(--gold-primary)]/60 hover:shadow-[0_0_14px_rgba(var(--gold-rgb),0.25)]'}`}
@@ -1991,39 +1893,6 @@ export default function Dashboard() {
                     mapBounds={mapCenter?.bounds || null}
                   />
                 </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
-
-        {/* Separator */}
-        <div className="w-4 h-px bg-white/10 mx-auto" />
-
-        {/* ── WORLD REMOTE ── */}
-        <div className="relative group">
-          <button onClick={() => { setShowRemote(!showRemote); setShowArcGIS(false); setShowIntel(false); setShowMarkets(false); setShowAlerts(false); setShowSpaceCam(false); setShowDrawing(false); setShowDesktopSearch(false); }} className={`relative w-8 h-8 rounded-full flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-white/50 ${showRemote ? 'bg-[var(--cyan-primary)]/20' : 'hover:bg-white/10'}`} title="World Remote — control nearby Bluetooth devices (TVs, speakers, AC)" aria-label="World Remote" aria-expanded={showRemote}>
-            <Bluetooth className={`w-4 h-4 ${showRemote ? 'text-[var(--cyan-primary)]' : 'text-white/60'}`} />
-            {showRemote && (
-              <span
-                aria-hidden="true"
-                className="absolute -right-1 top-1/2 -translate-y-1/2 h-4 w-[2px] rounded-full bg-current text-[var(--cyan-primary)]"
-              />
-            )}
-          </button>
-          <span className="absolute right-11 top-1/2 -translate-y-1/2 px-2 py-1 text-[9px] font-mono tracking-wider text-white/80 bg-black/80 backdrop-blur-sm rounded whitespace-nowrap opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity pointer-events-none">REMOTE</span>
-          <AnimatePresence>
-            {showRemote && (
-              <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="absolute right-12 top-1/2 -translate-y-1/2 w-80">
-                <WorldRemote onClose={() => setShowRemote(false)} onPlaceOnMap={(devs) => {
-                  setScanTargets(prev => {
-                    const ids = new Set(prev.map((t: any) => t.id));
-                    const next = [...prev];
-                    devs.forEach(d => { if (!ids.has(d.id)) next.unshift({ id: d.id, name: d.name, lat: d.lat, lng: d.lng, type: d.type, color: d.color, timestamp: Date.now(), source: 'BLE' }); });
-                    return next.slice(0, 20);
-                  });
-                  if (devs.length > 0) setFlyToLocation({ lat: devs[0].lat, lng: devs[0].lng, ts: Date.now() });
-                }} />
               </motion.div>
             )}
           </AnimatePresence>
@@ -2131,14 +2000,11 @@ export default function Dashboard() {
                 { id: 'layers' as const, icon: Layers, label: 'LAYERS' },
                 { id: 'markets' as const, icon: BarChart3, label: 'MARKETS' },
                 { id: 'intel' as const, icon: Newspaper, label: 'INTEL' },
-                { id: 'recon' as const, icon: Radar, label: 'RECON' },
-                { id: 'oi' as const, icon: Orbit, label: 'OI' },
                 { id: 'search' as const, icon: Search, label: 'SEARCH' },
                 // Routing was reachable only from the desktop tool rail, so a
                 // phone could not open it at all. It sits next to SEARCH
                 // because both answer "take me somewhere".
                 { id: 'route' as const, icon: Route, label: 'ROUTE' },
-                { id: 'remote' as const, icon: Bluetooth, label: 'REMOTE' },
               ].map(tab => {
                 // Routing opens the planner at the top of the screen rather than
                 // the bottom drawer — it needs the room above the keyboard, and
@@ -2168,8 +2034,8 @@ export default function Dashboard() {
                     disabled={isRoute && Boolean(navSession)}
                     className={`mobile-nav-btn ${active ? 'active' : ''}`}
                   >
-                    <tab.icon className={`w-4 h-4 ${tab.id === 'recon' ? 'text-[var(--cyan-primary)]' : ''}`} />
-                    <span className={tab.id === 'recon' ? 'text-[var(--cyan-primary)]' : ''}>{tab.label}</span>
+                    <tab.icon className="w-4 h-4" />
+                    <span>{tab.label}</span>
                   </button>
                 );
               })}
@@ -2211,34 +2077,12 @@ export default function Dashboard() {
                     </>
                   )}
                   {mobilePanel === 'markets' && <MarketsPanel data={data} spaceWeather={spaceWeather} />}
-                  {mobilePanel === 'oi' && (
-                    <OiPanel oi={oi} selected={oiSelected} onSelect={setOiSelected} embedded focus={oiFocus} onFocus={toggleOiFocus}
-                      onLocate={handleOiLocate} following={oiFollowing} onFollow={followOi}
-                      assist={assist} mode={oiMode} onMode={setOiMode} speakOn={oiVoice} onSpeak={setOiVoicePersist}
-                      stage={oiStage} onStage={setOiStage} />
-                  )}
                   {mobilePanel === 'intel' && <IntelFeed data={data} onLocate={(lat, lng) => { setFlyToLocation({ lat, lng, ts: Date.now() }); setMobilePanel(null); }} />}
                   {mobilePanel === 'search' && (
                     <div className="space-y-2">
                       <SearchBar embedded center={mapCenter} onDirections={openDirectionsTo} onLocate={(lat, lng, zoom) => { setFlyToLocation({ lat, lng, zoom, ts: Date.now() }); setMobilePanel(null); }} />
                       <SharePanel mapView={mapView} activeLayers={activeLayers} mouseCoords={null} />
                     </div>
-                  )}
-                  {mobilePanel === 'recon' && (
-                    <div className="space-y-2">
-                      <OsintPanel isOpen={true} onClose={() => setMobilePanel(null)} isMobile={true} onSweepVisualize={setSweepData} />
-                    </div>
-                  )}
-                  {mobilePanel === 'remote' && (
-                    <WorldRemote onClose={() => setMobilePanel(null)} onPlaceOnMap={(devs) => {
-                      setScanTargets(prev => {
-                        const ids = new Set(prev.map((t: any) => t.id));
-                        const next = [...prev];
-                        devs.forEach(d => { if (!ids.has(d.id)) next.unshift({ id: d.id, name: d.name, lat: d.lat, lng: d.lng, type: d.type, color: d.color, timestamp: Date.now(), source: 'BLE' }); });
-                        return next.slice(0, 20);
-                      });
-                      if (devs.length > 0) setFlyToLocation({ lat: devs[0].lat, lng: devs[0].lng, ts: Date.now() });
-                    }} />
                   )}
                 </div>
               </motion.div>

@@ -4,10 +4,10 @@
   "private": true,
   "scripts": {
     "predev": "node tools/prepare-map-worker.mjs",
-    "dev": "next dev",
+    "dev": "node tools/local-server.mjs --dev",
     "prebuild": "node tools/prepare-map-worker.mjs",
     "build": "next build",
-    "start": "next start",
+    "start": "node tools/local-server.mjs",
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -15,7 +15,6 @@
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
-    "@vercel/analytics": "^2.0.1",
     "framer-motion": "^12.38.0",
     "google-libphonenumber": "^3.2.44",
     "hls.js": "^1.6.16",

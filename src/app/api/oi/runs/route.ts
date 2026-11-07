@@ -1,6 +1,7 @@
 import { getClientIp } from '@/lib/ssrf-guard';
 import { runSummary } from '@/lib/oi/runs';
 import { credentials, disabled, disabledResponse, fail, json, readBody, siteOrigin, startPrediction } from '@/lib/oi/service';
+import { denyLocalCapability } from '@/lib/local-policy';
 
 /**
  * OSIRIS OI — start a prediction.
@@ -15,6 +16,8 @@ import { credentials, disabled, disabledResponse, fail, json, readBody, siteOrig
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
+  const denied = denyLocalCapability();
+  if (denied) return denied;
   if (disabled()) return disabledResponse();
   // Room for a seed of SEED_MAX characters, escaped as JSON.
   const body = await readBody(req, 240_000);

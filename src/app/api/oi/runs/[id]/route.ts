@@ -1,6 +1,7 @@
 import { getClientIp } from '@/lib/ssrf-guard';
 import { cancelRun, getRun, ownsRun, runSummary, waitForEnd, waitSlot } from '@/lib/oi/runs';
 import { disabled, disabledResponse, fail, json, siteOrigin } from '@/lib/oi/service';
+import { denyLocalCapability } from '@/lib/local-policy';
 
 /**
  * OSIRIS OI — one run.
@@ -14,6 +15,8 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const denied = denyLocalCapability();
+  if (denied) return denied;
   if (disabled()) return disabledResponse();
   const run = getRun((await params).id);
   if (!run) return fail(404, 'No such run. Runs are kept for a few hours.');
@@ -33,6 +36,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 }
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const denied = denyLocalCapability();
+  if (denied) return denied;
   if (disabled()) return disabledResponse();
   const run = getRun((await params).id);
   if (!run) return fail(404, 'No such run.');

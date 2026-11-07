@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
+import { denyLocalCapability } from '@/lib/local-policy';
 
 export async function GET() {
+  const denied = denyLocalCapability();
+  if (denied) return denied;
   try {
     const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana&vs_currencies=usd', { signal: AbortSignal.timeout(15000),
       next: { revalidate: 60 } // cache for 60 seconds

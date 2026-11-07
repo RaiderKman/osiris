@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { isIP } from 'node:net';
 import { portServiceName } from '@/lib/osint-utils';
 import { getClientIp, isRateLimited, validateHost } from '@/lib/ssrf-guard';
+import { denyLocalCapability } from '@/lib/local-policy';
 
 export const dynamic = 'force-dynamic';
 
@@ -156,6 +157,8 @@ async function fromInternetDb(target: string, ip: string, note?: string): Promis
 }
 
 export async function GET(req: Request) {
+  const denied = denyLocalCapability();
+  if (denied) return denied;
   const target = new URL(req.url).searchParams.get('target')?.trim() ?? '';
   if (!target) return NextResponse.json({ error: 'Missing target parameter' }, { status: 400 });
 

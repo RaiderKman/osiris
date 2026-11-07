@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { isRateLimited, getClientIp } from '@/lib/ssrf-guard';
 import { search, type Schema } from '@/lib/sanctions';
+import { denyLocalCapability } from '@/lib/local-policy';
 
 // Standalone OFAC SDN search (free, no key) backed by the OpenSanctions
 // `us_ofac_sdn` mirror. Substring + alias-aware match, schema-filterable.
@@ -15,6 +16,8 @@ const ALLOWED_SCHEMAS: Schema[] = [
 ];
 
 export async function GET(req: Request) {
+  const denied = denyLocalCapability();
+  if (denied) return denied;
   const { searchParams } = new URL(req.url);
   const query = (searchParams.get('query') || '').trim();
   const schemaParam = searchParams.get('schema');

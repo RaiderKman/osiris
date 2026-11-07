@@ -10,12 +10,10 @@ import { httpJson } from '@/lib/httpJson';
  * /api/geosearch and this module. A server of our own has no usage policy for
  * our traffic to outgrow.
  *
- * Without OSIRIS_GEOCODER_URL, a copy asks the shared search of an OSIRIS
- * deployment that runs one — osirisai.live unless SHARED_SEARCH_URL says
- * otherwise — so it gets the same streets and addresses with nothing to set
- * up. When that cannot answer either, the browser searches Wikipedia,
- * Wikidata and the built-in place list instead (lib/geosearch.ts). So the
- * rules are:
+ * Without OSIRIS_GEOCODER_URL, this build does not call another deployment.
+ * Set SHARED_SEARCH_URL to an explicit URL to do that. Otherwise the browser
+ * searches Wikipedia, Wikidata and the built-in place list (lib/geosearch.ts).
+ * The rules are:
  *
  *   • The browser never asks the geocoder; only the server does, through this
  *     module, so one cache serves every visitor and the geocoder can stay on
@@ -35,13 +33,14 @@ import { httpJson } from '@/lib/httpJson';
 /** The geocoder's address, e.g. `http://geocoder.internal:2322`; empty turns lookups off. */
 const baseUrl = () => (process.env.OSIRIS_GEOCODER_URL || '').trim().replace(/\/+$/, '');
 
-/** Where a copy without a geocoder searches instead: the deployment that runs osirisai.live. */
+/** Kept so older notes can name the public deployment. This build does not call it unless SHARED_SEARCH_URL is set to that URL. */
 export const DEFAULT_SHARED_SEARCH = 'https://osirisai.live/api/geosearch/shared';
 
-/** The shared search to ask; empty when SHARED_SEARCH_URL is `off`. Unset or blank means the default. */
+/** Empty unless the operator sets an explicit URL. `off` and blank both stay local. */
 const sharedUrl = () => {
   const set = (process.env.SHARED_SEARCH_URL || '').trim();
-  return set.toLowerCase() === 'off' ? '' : set || DEFAULT_SHARED_SEARCH;
+  if (!set || set.toLowerCase() === 'off') return '';
+  return set;
 };
 
 /** Places do not move. */

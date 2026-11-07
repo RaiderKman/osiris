@@ -1,5 +1,8 @@
-# Dependencies
+# Dependencies. The leading slash is only the repository root.
+# The optional intel service's installed packages were vendored under
+# intel/node_modules and are not part of the local app tree.
 /node_modules
+intel/node_modules/
 /.pnp
 .pnp.js
 .yarn/install-state.gz
@@ -26,6 +29,9 @@ yarn-error.log*
 # Local env files
 .env*.local
 .env
+
+# Project-private sign-in credential. Never commit.
+.local-auth/
 
 # Vercel
 .vercel

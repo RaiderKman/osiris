@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
+import { denyLocalCapability } from '@/lib/local-policy';
 
 export async function GET(req: Request) {
+  const denied = denyLocalCapability();
+  if (denied) return denied;
   const { searchParams } = new URL(req.url);
   const username = searchParams.get('user');
 

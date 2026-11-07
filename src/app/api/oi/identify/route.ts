@@ -2,6 +2,7 @@ import { canSeeImages, createChat, providerInfo, ProviderError } from '@/lib/oi/
 import { credentials, disabled, disabledResponse, fail, json, limited, readBody } from '@/lib/oi/service';
 import { extractJson } from '@/lib/oi/parse';
 import { IDENTIFY_SYSTEM, MAX_CROPS, identifyPrompt, parseIdentities } from '@/lib/vision/identify';
+import { denyLocalCapability } from '@/lib/local-policy';
 
 /**
  * OSIRIS OI — name the vehicles in a camera frame, on the reader's own key.
@@ -24,6 +25,8 @@ const MAX_IMAGE_CHARS = 160_000;
 const BASE64 = /^[A-Za-z0-9+/]+={0,2}$/;
 
 export async function POST(req: Request) {
+  const denied = denyLocalCapability();
+  if (denied) return denied;
   if (disabled()) return disabledResponse();
   if (limited(req, 'identify', 12)) return fail(429, 'Too many identifications in a minute. Wait a moment.');
   const body = await readBody(req, MAX_CROPS * MAX_IMAGE_CHARS + 4_000);

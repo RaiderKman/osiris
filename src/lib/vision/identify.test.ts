@@ -51,33 +51,16 @@ describe("reading the model's answer", () => {
 
 describe('POST /api/oi/identify', () => {
   afterEach(() => vi.unstubAllGlobals());
-  const JPEG = 'QUJDRA==';
-  const post = (body: unknown, headers: Record<string, string>) => POST(new Request('http://localhost/api/oi/identify', {
-    method: 'POST', headers: { 'content-type': 'application/json', 'x-real-ip': `203.0.113.${Math.floor(Math.random() * 200)}`, ...headers }, body: JSON.stringify(body),
-  }));
 
-  it('asks a vision model on the reader key, with the crops attached, and returns what it named', async () => {
-    const sent: { body: Record<string, unknown> }[] = [];
-    vi.stubGlobal('fetch', vi.fn(async (_url: string, init: RequestInit) => {
-      sent.push({ body: JSON.parse(String(init.body)) });
-      return new Response(JSON.stringify({ content: [{ type: 'text', text: '{"vehicles":[{"n":1,"make":"Toyota","model":"Prius","body":"car","colour":"white","confidence":"likely"}]}' }] }));
+  it('returns before any model call', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    const res = await POST(new Request('http://127.0.0.1/api/oi/identify', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ crops: [{ n: 1, image: 'QUJDRA==' }] }),
     }));
-    const res = await post({ camera: 'I-80 at 6th', crops: [{ n: 1, image: JPEG }] }, { 'x-oi-provider': 'anthropic', 'x-oi-key': 'sk-ant-test-0123456789', 'x-oi-model': 'claude-haiku-4-5-20251001' });
-    expect(res.status).toBe(200);
-    expect((await res.json()).vehicles[0]).toMatchObject({ make: 'Toyota', model: 'Prius', confidence: 'likely' });
-    const content = (sent[0].body.messages as { content: { type: string }[] }[])[0].content;
-    expect(content.map(c => c.type)).toEqual(['image', 'text']);
-  });
-
-  it('refuses without a key, with a model that cannot see, and without crops', async () => {
-    expect((await post({ crops: [{ n: 1, image: JPEG }] }, { 'x-oi-provider': 'openai' })).status).toBe(401);
-    expect((await post({ crops: [{ n: 1, image: JPEG }] }, { 'x-oi-provider': 'deepseek', 'x-oi-key': 'sk-test-0123456789abcdef', 'x-oi-model': 'deepseek-chat' })).status).toBe(400);
-    expect((await post({ crops: [{ n: 1, image: 'not base64!' }] }, { 'x-oi-provider': 'openai', 'x-oi-key': 'sk-test-0123456789abcdef' })).status).toBe(400);
-  });
-
-  it('answers from the scripted demo in development, marked as such', async () => {
-    const res = await post({ crops: [{ n: 1, image: JPEG }, { n: 2, image: JPEG }] }, { 'x-oi-provider': 'demo' });
-    const { vehicles } = await res.json();
-    expect(vehicles[0].model).toContain('(demo)');
+    expect(res.status).toBe(404);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

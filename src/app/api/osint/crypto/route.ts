@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { isRateLimited, getClientIp } from '@/lib/ssrf-guard';
 import { analyseAddress, capabilities, detectChain, type Chain } from '@/lib/chainIntel';
+import { denyLocalCapability } from '@/lib/local-policy';
 
 /**
  * OSIRIS — On-chain wallet intelligence.
@@ -16,6 +17,8 @@ export const maxDuration = 60;
 const CHAINS: Chain[] = ['bitcoin', 'ethereum', 'solana'];
 
 export async function GET(req: Request) {
+  const denied = denyLocalCapability();
+  if (denied) return denied;
   const { searchParams } = new URL(req.url);
 
   // Capability probe — lets the UI decide what to offer without an upstream call.

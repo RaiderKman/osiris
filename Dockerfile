@@ -28,6 +28,8 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 USER nextjs
 EXPOSE 3000
 ENV PORT=3000
-ENV HOSTNAME="0.0.0.0"
+ENV HOSTNAME="127.0.0.1"
 
-CMD ["node", "server.js"]
+# The supported listener is `npm start` in a checkout (tools/local-server.mjs).
+# This image does not boot an unauthenticated public server.
+CMD ["node", "-e", "console.error('Use npm start from a local checkout. This image is not a public server.'); process.exit(1)"]

@@ -2,6 +2,7 @@ import { getClientIp } from '@/lib/ssrf-guard';
 import { getRun, subscribe } from '@/lib/oi/runs';
 import { disabled, disabledResponse, fail } from '@/lib/oi/service';
 import type { Stamped } from '@/lib/oi/types';
+import { denyLocalCapability } from '@/lib/local-policy';
 
 /**
  * OSIRIS OI — a run as it happens, over Server-Sent Events.
@@ -20,6 +21,8 @@ const g = globalThis as unknown as { __osirisOiStreams?: Map<string, number> };
 const open = (g.__osirisOiStreams ??= new Map());
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const denied = denyLocalCapability();
+  if (denied) return denied;
   if (disabled()) return disabledResponse();
   const run = getRun((await params).id);
   if (!run) return fail(404, 'No such run. Runs are kept for a few hours.');

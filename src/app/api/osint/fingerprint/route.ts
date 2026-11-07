@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { isRateLimited, getClientIp } from '@/lib/ssrf-guard';
 import { scanUsername, isValidUsername } from '@/lib/sherlock';
+import { denyLocalCapability } from '@/lib/local-policy';
 
 /**
  * OSIRIS — FINGERPRINT username search, streamed.
@@ -23,6 +24,8 @@ import { scanUsername, isValidUsername } from '@/lib/sherlock';
 export const maxDuration = 120;
 
 export async function GET(req: Request) {
+  const denied = denyLocalCapability();
+  if (denied) return denied;
   const username = (new URL(req.url).searchParams.get('username') || '').trim();
 
   if (!username) {

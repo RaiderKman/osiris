@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { isRateLimited, getClientIp } from '@/lib/ssrf-guard';
+import { denyLocalCapability } from '@/lib/local-policy';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,6 +23,8 @@ const INTEL_URL = process.env.INTEL_URL || (
 const ALLOWED_TYPES = new Set(['aircraft', 'vessel', 'company', 'person', 'ip', 'country']);
 
 export async function GET(req: Request) {
+  const denied = denyLocalCapability();
+  if (denied) return denied;
   const clientIp = getClientIp(req);
   if (isRateLimited(clientIp, 30, 60_000)) {
     return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 });

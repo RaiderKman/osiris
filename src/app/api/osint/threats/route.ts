@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import net from 'node:net';
 import { isRateLimited, getClientIp } from '@/lib/ssrf-guard';
+import { denyLocalCapability } from '@/lib/local-policy';
 
 /**
  * Whether `ip` is on Tor's bulk exit list. The list is one address per line,
@@ -13,6 +14,8 @@ export function onTorExitList(list: string, ip: string): boolean {
 
 // Threat Intelligence — AlienVault OTX public pulse feed + Tor exit nodes
 export async function GET(req: Request) {
+  const denied = denyLocalCapability();
+  if (denied) return denied;
   const { searchParams } = new URL(req.url);
   const query = searchParams.get('query'); // Optional: IP or domain to check
   

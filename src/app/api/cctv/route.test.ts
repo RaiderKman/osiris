@@ -61,30 +61,33 @@ describe('CCTV partial responses', () => {
     expect(body.pendingRegions).toEqual([]);
   });
 
-  it('does not dispatch every region at once', async () => {
-    let inFlight = 0;
-    let peak = 0;
-    vi.mocked(stealthFetch).mockImplementation(() => {
-      peak = Math.max(peak, ++inFlight);
-      return new Promise(() => {}); // never settles: hold the slot
-    });
-
-    void GET(new Request('http://localhost/api/cctv?region=all'));
-    await flushIO();
-    await vi.advanceTimersByTimeAsync(0);
-
-    expect(peak).toBeGreaterThan(0);
-    expect(peak).toBeLessThan(20);
+  it('does not fan out for region=all or a missing region', async () => {
+    const all = await GET(new Request('http://localhost/api/cctv?region=all'));
+    const missing = await GET(new Request('http://localhost/api/cctv'));
+    expect(all.status).toBe(400);
+    expect(missing.status).toBe(400);
+    expect(vi.mocked(stealthFetch)).not.toHaveBeenCalled();
   });
 
-  it('answers on one shared deadline rather than one per region', async () => {
-    vi.mocked(stealthFetch).mockReturnValue(new Promise(() => {}));
-    const pending = GET(new Request('http://localhost/api/cctv?region=all'));
-    await flushIO();
-    await vi.advanceTimersByTimeAsync(12_000);
-
-    const body = await (await pending).json();
-    expect(body.pendingRegions.length).toBeGreaterThan(20);
+  it('loads a selected Caltrans fixture without a forged forwarding header', async () => {
+    vi.mocked(stealthFetch).mockResolvedValue(Response.json({
+      features: [{ attributes: {
+        OBJECTID: 7, latitude: 34.05, longitude: -118.25, locationName: 'Test cam',
+        nearbyPlace: 'Los Angeles', county: 'Los Angeles', inService: 'True',
+        currentImageURL: 'https://cwwp2.dot.ca.gov/still.jpg',
+        streamingVideoURL: 'https://wzmedia.dot.ca.gov/D7/test.stream/playlist.m3u8',
+      } }],
+    }));
+    const body = await (await GET(new Request('http://localhost/api/cctv?region=caltrans'))).json();
+    expect(body.total).toBe(1);
+    expect(body.cameras[0]).toMatchObject({
+      source: 'Caltrans',
+      feed_url: 'https://cwwp2.dot.ca.gov/still.jpg',
+      stream_url: 'https://wzmedia.dot.ca.gov/D7/test.stream/playlist.m3u8',
+      stream_type: 'hls',
+    });
+    expect(String(vi.mocked(stealthFetch).mock.calls[0][0])).toContain('caltrans-gis.dot.ca.gov');
+    expect(vi.mocked(stealthFetch)).toHaveBeenCalledTimes(1);
   });
 
   it('serves an already-cached region without going upstream again', async () => {
