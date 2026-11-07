@@ -1,15 +1,17 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { homedir } from 'node:os';
-import { join } from 'node:path';
 
 export const SESSION_COOKIE = 'osiris_local';
 export const LOGIN_PATH = '/local-login';
 
-/** App-specific file. Created by tools/bootstrap-local-auth.mjs. Not another account's secret. */
+/**
+ * Path of the project-private credential file.
+ * Empty unless OSIRIS_LOCAL_TOKEN_FILE is set. There is no home-directory default.
+ */
 export function defaultTokenPath() {
-  return process.env.OSIRIS_LOCAL_TOKEN_FILE?.trim()
-    || join(homedir(), '.config', 'osiris', 'local-token');
+  const set = process.env.OSIRIS_LOCAL_TOKEN_FILE;
+  if (typeof set !== 'string') return '';
+  return set.trim();
 }
 
 let cached;
@@ -20,17 +22,23 @@ export function resetLocalTokenCache() {
 
 export function loadLocalToken() {
   if (cached !== undefined) return cached;
+  const file = defaultTokenPath();
+  // An explicit file wins. A leftover OSIRIS_LOCAL_TOKEN must not override it.
+  if (file) {
+    try {
+      const text = readFileSync(file, 'utf8').trim();
+      cached = text || null;
+    } catch {
+      cached = null;
+    }
+    return cached;
+  }
   const fromEnv = process.env.OSIRIS_LOCAL_TOKEN;
   if (typeof fromEnv === 'string' && fromEnv.trim()) {
     cached = fromEnv.trim();
     return cached;
   }
-  try {
-    const text = readFileSync(defaultTokenPath(), 'utf8').trim();
-    cached = text || null;
-  } catch {
-    cached = null;
-  }
+  cached = null;
   return cached;
 }
 

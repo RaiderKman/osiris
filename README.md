@@ -171,13 +171,17 @@ This fork is a local loopback build. Recon, wallet tools, World Remote, and tele
 ```bash
 git clone https://github.com/RaiderKman/osiris.git
 cd osiris
+unset OSIRIS_LOCAL_TOKEN
+export OSIRIS_LOCAL_TOKEN_FILE="$PWD/.local-auth/local-token"
+export NEXT_TELEMETRY_DISABLED=1
+mkdir -m 0700 .local-auth
 node tools/bootstrap-local-auth.mjs
 npm ci --ignore-scripts
 npm run build
 npm start
 ```
 
-Open [http://127.0.0.1:3000](http://127.0.0.1:3000) and paste the credential from `~/.config/osiris/local-token`. The bootstrap command does not print it.
+Check out the commit named in the deployment plan before those commands. Open [http://127.0.0.1:3000](http://127.0.0.1:3000) and paste the credential from `.local-auth/local-token` in that project directory. The bootstrap command does not print it. Do not use `~/.config/osiris`.
 
 ### Docker / Self-Hosting
 
