@@ -9,7 +9,9 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    include: ['src/**/*.test.ts', 'intel/*.test.ts'],
+    include: ['src/**/*.test.ts'],
+    // intel/server.test.ts needs the optional service's own dependencies.
+    // Those are not vendored and are not installed for the local app.
     // Live-network integration tests are opt-in via RUN_LIVE_TESTS=1
     testTimeout: 30000,
   },
